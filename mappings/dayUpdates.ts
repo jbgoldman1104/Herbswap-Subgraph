@@ -27,6 +27,9 @@ export function updatePancakeDayData(event: ethereum.Event): PancakeDayData {
     pancakeDayData.totalVolumeUSD = ZERO_BD;
     pancakeDayData.totalVolumeETH = ZERO_BD;
     pancakeDayData.dailyVolumeUntracked = ZERO_BD;
+    pancakeDayData.totalLiquidityUSD = ZERO_BD;
+    pancakeDayData.totalLiquidityETH = ZERO_BD;
+    pancakeDayData.totalTransactions = ZERO_BI;
   }
   if ( pancake ) {
     pancakeDayData.totalLiquidityUSD = pancake.totalLiquidityUSD;
@@ -57,6 +60,11 @@ export function updatePairDayData(event: ethereum.Event): PairDayData {
     pairDayData.dailyVolumeToken1 = ZERO_BD;
     pairDayData.dailyVolumeUSD = ZERO_BD;
     pairDayData.dailyTxns = ZERO_BI;
+
+    pairDayData.totalSupply = ZERO_BD;
+    pairDayData.reserve0 = ZERO_BD;
+    pairDayData.reserve1 = ZERO_BD;
+    pairDayData.reserveUSD = ZERO_BD;
   }
   if ( pair ) {
     pairDayData.totalSupply = pair.totalSupply;
@@ -110,6 +118,7 @@ export function updateTokenDayData(token: Token, event: ethereum.Event): TokenDa
     tokenDayData = new TokenDayData(tokenDayID);
     tokenDayData.date = dayStartTimestamp;
     tokenDayData.token = token.id;
+    tokenDayData.priceUSD = ZERO_BD;
     if ( bundle ) {
       tokenDayData.priceUSD = token.derivedETH.times(bundle.ethPrice);
     }
@@ -118,13 +127,18 @@ export function updateTokenDayData(token: Token, event: ethereum.Event): TokenDa
     tokenDayData.dailyVolumeUSD = ZERO_BD;
     tokenDayData.dailyTxns = ZERO_BI;
     tokenDayData.totalLiquidityUSD = ZERO_BD;
+    tokenDayData.priceUSD = ZERO_BD;
+    tokenDayData.totalLiquidityUSD = ZERO_BD;
+    tokenDayData.totalLiquidityETH = ZERO_BD;
   }
   if ( bundle ) {
     tokenDayData.priceUSD = token.derivedETH.times(bundle.ethPrice);
-    tokenDayData.totalLiquidityUSD = tokenDayData.totalLiquidityETH.times(bundle.ethPrice);
   }
   tokenDayData.totalLiquidityToken = token.totalLiquidity;
   tokenDayData.totalLiquidityETH = token.totalLiquidity.times(token.derivedETH as BigDecimal);
+  if ( bundle ) {
+    tokenDayData.totalLiquidityUSD = tokenDayData.totalLiquidityETH.times(bundle.ethPrice);
+  }
   tokenDayData.dailyTxns = tokenDayData.dailyTxns.plus(ONE_BI);
   tokenDayData.save();
 
