@@ -14,7 +14,7 @@ import { Burn, Mint, Swap, Sync, Transfer } from "../generated/templates/Pair/Pa
 import { updatePairDayData, updatePairHourData, updatePancakeDayData, updateTokenDayData } from "./dayUpdates";
 import {
   findEthPerToken,
-  getETHPriceInUSD,
+  getBNBPriceInUSD,
   getTrackedFeeVolumeUSD,
   getTrackedLiquidityUSD,
   getTrackedVolumeUSD,
@@ -195,7 +195,7 @@ export function handleSync(event: Sync): void {
   }
 
   // reset factory liquidity by subtracting only tracked liquidity
-  pancake.totalLiquidityETH = pancake.totalLiquidityETH.minus(pair.trackedReserveETH as BigDecimal);
+  pancake.totalLiquidityBNB = pancake.totalLiquidityBNB.minus(pair.trackedReserveBNB as BigDecimal);
 
   // reset token total liquidity amounts
   token0.totalLiquidity = token0.totalLiquidity.minus(pair.reserve0);
@@ -213,23 +213,23 @@ export function handleSync(event: Sync): void {
   if (!bundle) {
     return;
   }
-  bundle.ethPrice = getETHPriceInUSD();
+  bundle.ethPrice = getBNBPriceInUSD();
   bundle.save();
 
-  let t0DerivedETH = findEthPerToken(token0 as Token);
-  token0.derivedETH = t0DerivedETH;
-  token0.derivedUSD = t0DerivedETH.times(bundle.ethPrice);
+  let t0DerivedBNB = findEthPerToken(token0 as Token);
+  token0.derivedBNB = t0DerivedBNB;
+  token0.derivedUSD = t0DerivedBNB.times(bundle.ethPrice);
   token0.save();
 
-  let t1DerivedETH = findEthPerToken(token1 as Token);
-  token1.derivedETH = t1DerivedETH;
-  token1.derivedUSD = t1DerivedETH.times(bundle.ethPrice);
+  let t1DerivedBNB = findEthPerToken(token1 as Token);
+  token1.derivedBNB = t1DerivedBNB;
+  token1.derivedUSD = t1DerivedBNB.times(bundle.ethPrice);
   token1.save();
 
   // get tracked liquidity - will be 0 if neither is in whitelist
-  let trackedLiquidityETH: BigDecimal;
+  let trackedLiquidityBNB: BigDecimal;
   if (bundle.ethPrice.notEqual(ZERO_BD)) {
-    trackedLiquidityETH = getTrackedLiquidityUSD(
+    trackedLiquidityBNB = getTrackedLiquidityUSD(
       bundle as Bundle,
       pair.reserve0,
       token0 as Token,
@@ -237,19 +237,19 @@ export function handleSync(event: Sync): void {
       token1 as Token
     ).div(bundle.ethPrice);
   } else {
-    trackedLiquidityETH = ZERO_BD;
+    trackedLiquidityBNB = ZERO_BD;
   }
 
   // use derived amounts within pair
-  pair.trackedReserveETH = trackedLiquidityETH;
-  pair.reserveETH = pair.reserve0
-    .times(token0.derivedETH as BigDecimal)
-    .plus(pair.reserve1.times(token1.derivedETH as BigDecimal));
-  pair.reserveUSD = pair.reserveETH.times(bundle.ethPrice);
+  pair.trackedReserveBNB = trackedLiquidityBNB;
+  pair.reserveBNB = pair.reserve0
+    .times(token0.derivedBNB as BigDecimal)
+    .plus(pair.reserve1.times(token1.derivedBNB as BigDecimal));
+  pair.reserveUSD = pair.reserveBNB.times(bundle.ethPrice);
 
   // use tracked amounts globally
-  pancake.totalLiquidityETH = pancake.totalLiquidityETH.plus(trackedLiquidityETH);
-  pancake.totalLiquidityUSD = pancake.totalLiquidityETH.times(bundle.ethPrice);
+  pancake.totalLiquidityBNB = pancake.totalLiquidityBNB.plus(trackedLiquidityBNB);
+  pancake.totalLiquidityUSD = pancake.totalLiquidityBNB.times(bundle.ethPrice);
 
   // now correctly set liquidity amounts for each token
   token0.totalLiquidity = token0.totalLiquidity.plus(pair.reserve0);
@@ -297,9 +297,9 @@ export function handleMint(event: Mint): void {
   if ( !bundle ) {
     return;
   }
-  let amountTotalUSD = token1.derivedETH
+  let amountTotalUSD = token1.derivedBNB
     .times(token1Amount)
-    .plus(token0.derivedETH.times(token0Amount))
+    .plus(token0.derivedBNB.times(token0Amount))
     .times(bundle.ethPrice);
 
   // update txn counts
@@ -367,9 +367,9 @@ export function handleBurn(event: Burn): void {
   if ( !bundle ) {
     return;
   }
-  let amountTotalUSD = token1.derivedETH
+  let amountTotalUSD = token1.derivedBNB
     .times(token1Amount)
-    .plus(token0.derivedETH.times(token0Amount))
+    .plus(token0.derivedBNB.times(token0Amount))
     .times(bundle.ethPrice);
 
   // update txn counts
@@ -423,26 +423,26 @@ export function handleSwap(event: Swap): void {
     return;
   }
 
-  let derivedToken0AmountETH = token0.derivedETH.times(amount0Total);
-  let derivedToken1AmountETH = token1.derivedETH.times(amount1Total);
+  let derivedToken0AmountBNB = token0.derivedBNB.times(amount0Total);
+  let derivedToken1AmountBNB = token1.derivedBNB.times(amount1Total);
 
   // get total amounts of derived USD and BNB for tracking
-  let derivedAmountETH = derivedToken1AmountETH.plus(derivedToken0AmountETH).div(BigDecimal.fromString("2"));
-  let derivedAmountUSD = derivedAmountETH.times(bundle.ethPrice);
+  let derivedAmountBNB = derivedToken1AmountBNB.plus(derivedToken0AmountBNB).div(BigDecimal.fromString("2"));
+  let derivedAmountUSD = derivedAmountBNB.times(bundle.ethPrice);
 
   // get swap fee amount of derived USD and BNB for tracking
-  let derivedFeeAmountETH: BigDecimal;
+  let derivedFeeAmountBNB: BigDecimal;
   if (
-    derivedToken0AmountETH.equals(BigDecimal.fromString("0")) ||
-    derivedToken1AmountETH.equals(BigDecimal.fromString("0"))
+    derivedToken0AmountBNB.equals(BigDecimal.fromString("0")) ||
+    derivedToken1AmountBNB.equals(BigDecimal.fromString("0"))
   ) {
-    derivedFeeAmountETH = ZERO_BD;
-  } else if (derivedToken0AmountETH.ge(derivedToken1AmountETH)) {
-    derivedFeeAmountETH = derivedToken0AmountETH.minus(derivedToken1AmountETH);
+    derivedFeeAmountBNB = ZERO_BD;
+  } else if (derivedToken0AmountBNB.ge(derivedToken1AmountBNB)) {
+    derivedFeeAmountBNB = derivedToken0AmountBNB.minus(derivedToken1AmountBNB);
   } else {
-    derivedFeeAmountETH = derivedToken1AmountETH.minus(derivedToken0AmountETH);
+    derivedFeeAmountBNB = derivedToken1AmountBNB.minus(derivedToken0AmountBNB);
   }
-  let derivedFeeAmountUSD = derivedFeeAmountETH.times(bundle.ethPrice);
+  let derivedFeeAmountUSD = derivedFeeAmountBNB.times(bundle.ethPrice);
 
   // only accounts for volume through white listed tokens
   let trackedAmountUSD = getTrackedVolumeUSD(
@@ -460,11 +460,11 @@ export function handleSwap(event: Swap): void {
     token1 as Token
   );
 
-  let trackedAmountETH: BigDecimal;
+  let trackedAmountBNB: BigDecimal;
   if (bundle.ethPrice.equals(ZERO_BD)) {
-    trackedAmountETH = ZERO_BD;
+    trackedAmountBNB = ZERO_BD;
   } else {
-    trackedAmountETH = trackedAmountUSD.div(bundle.ethPrice);
+    trackedAmountBNB = trackedAmountUSD.div(bundle.ethPrice);
   }
 
   // update token0 global volume and token liquidity stats
@@ -495,7 +495,7 @@ export function handleSwap(event: Swap): void {
     return;
   }
   pancake.totalVolumeUSD = pancake.totalVolumeUSD.plus(trackedAmountUSD);
-  pancake.totalVolumeETH = pancake.totalVolumeETH.plus(trackedAmountETH);
+  pancake.totalVolumeBNB = pancake.totalVolumeBNB.plus(trackedAmountBNB);
   pancake.untrackedVolumeUSD = pancake.untrackedVolumeUSD.plus(derivedAmountUSD);
   pancake.totalTransactions = pancake.totalTransactions.plus(ONE_BI);
 
@@ -554,7 +554,7 @@ export function handleSwap(event: Swap): void {
 
   // swap specific updating
   pancakeDayData.dailyVolumeUSD = pancakeDayData.dailyVolumeUSD.plus(trackedAmountUSD);
-  pancakeDayData.dailyVolumeETH = pancakeDayData.dailyVolumeETH.plus(trackedAmountETH);
+  pancakeDayData.dailyVolumeBNB = pancakeDayData.dailyVolumeBNB.plus(trackedAmountBNB);
   pancakeDayData.dailyVolumeUntracked = pancakeDayData.dailyVolumeUntracked.plus(derivedAmountUSD);
   pancakeDayData.save();
 
@@ -572,17 +572,17 @@ export function handleSwap(event: Swap): void {
 
   // swap specific updating for token0
   token0DayData.dailyVolumeToken = token0DayData.dailyVolumeToken.plus(amount0Total);
-  token0DayData.dailyVolumeETH = token0DayData.dailyVolumeETH.plus(amount0Total.times(token0.derivedETH as BigDecimal));
+  token0DayData.dailyVolumeBNB = token0DayData.dailyVolumeBNB.plus(amount0Total.times(token0.derivedBNB as BigDecimal));
   token0DayData.dailyVolumeUSD = token0DayData.dailyVolumeUSD.plus(
-    amount0Total.times(token0.derivedETH as BigDecimal).times(bundle.ethPrice)
+    amount0Total.times(token0.derivedBNB as BigDecimal).times(bundle.ethPrice)
   );
   token0DayData.save();
 
   // swap specific updating
   token1DayData.dailyVolumeToken = token1DayData.dailyVolumeToken.plus(amount1Total);
-  token1DayData.dailyVolumeETH = token1DayData.dailyVolumeETH.plus(amount1Total.times(token1.derivedETH as BigDecimal));
+  token1DayData.dailyVolumeBNB = token1DayData.dailyVolumeBNB.plus(amount1Total.times(token1.derivedBNB as BigDecimal));
   token1DayData.dailyVolumeUSD = token1DayData.dailyVolumeUSD.plus(
-    amount1Total.times(token1.derivedETH as BigDecimal).times(bundle.ethPrice)
+    amount1Total.times(token1.derivedBNB as BigDecimal).times(bundle.ethPrice)
   );
   token1DayData.save();
 }
